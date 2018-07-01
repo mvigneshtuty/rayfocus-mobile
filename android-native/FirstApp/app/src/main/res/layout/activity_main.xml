@@ -9,26 +9,27 @@
 
     <Button
         android:id="@+id/button"
-        android:layout_width="97dp"
-        android:layout_height="55dp"
+        android:layout_width="88dp"
+        android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
         android:layout_marginStart="16dp"
-        android:text="Button"
-        app:layout_constraintBaseline_toBaselineOf="@+id/editText2"
+        android:onClick="sendMessage"
+        android:text="@string/button_send"
+        app:layout_constraintBaseline_toBaselineOf="@+id/editText"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
-        app:layout_constraintStart_toEndOf="@+id/editText2" />
+        app:layout_constraintStart_toEndOf="@+id/editText" />
 
     <EditText
-        android:id="@+id/editText2"
-        android:layout_width="230dp"
-        android:layout_height="57dp"
+        android:id="@+id/editText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginLeft="16dp"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:ems="10"
+        android:hint="@string/edit_message"
         android:inputType="textPersonName"
-        android:text="Name"
         app:layout_constraintEnd_toStartOf="@+id/button"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
