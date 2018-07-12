@@ -16,13 +16,16 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Debug;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -35,6 +38,8 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.firebase.ui.auth.AuthUI;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
@@ -42,18 +47,27 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig;
+import com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
 
     public static final String ANONYMOUS = "anonymous";
+    public static final String FRIENDLY_MSG_LENGTH_KEY = "friendly_msg_length";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
     public static final int RC_SIGN_IN = 1;
+    public static final int RC_PHOTO_PICKER = 2;
 
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -69,6 +83,9 @@ public class MainActivity extends AppCompatActivity {
     private ChildEventListener mChildEventListener;
     private FirebaseAuth mFirebaseAuth;
     private FirebaseAuth.AuthStateListener mAuthStateListener;
+    private FirebaseStorage mFirebaseStorage;
+    private StorageReference mChatPhotosStorageReference;
+    private FirebaseRemoteConfig mFirebaseRemoteConfig;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +98,11 @@ public class MainActivity extends AppCompatActivity {
         mFirebaseDatabase = FirebaseDatabase.getInstance();
         mFirebaseAuth = FirebaseAuth.getInstance();
         mMessageDatabaseReference = mFirebaseDatabase.getReference().child("messages");
+        // Firebase storage
+        mFirebaseStorage = FirebaseStorage.getInstance();
+        mChatPhotosStorageReference = mFirebaseStorage.getReference().child("chat_photos");
+        // Firebase Remote Config
+        mFirebaseRemoteConfig = FirebaseRemoteConfig.getInstance();
 
         // Initialize references to views
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
@@ -101,7 +123,10 @@ public class MainActivity extends AppCompatActivity {
         mPhotoPickerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // TODO: Fire an intent to show an image picker
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("image/jpeg");
+                intent.putExtra(Intent.EXTRA_LOCAL_ONLY,true);
+                startActivityForResult(Intent.createChooser(intent, "Complete action using"),RC_PHOTO_PICKER);
             }
         });
 
@@ -161,11 +186,20 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+        FirebaseRemoteConfigSettings configSettings = new FirebaseRemoteConfigSettings.Builder().setDeveloperModeEnabled(BuildConfig.DEBUG).build();
+        mFirebaseRemoteConfig.setConfigSettings(configSettings);
+        Map<String,Object> defaultConfigMap = new HashMap<String,Object>();
+        defaultConfigMap.put(FRIENDLY_MSG_LENGTH_KEY,DEFAULT_MSG_LENGTH_LIMIT);
+        mFirebaseRemoteConfig.setDefaults(defaultConfigMap);
+        fetchConfig();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        Log.e("FriendlyChat","requestCode :"+requestCode);
+        Log.e("FriendlyChat","resultCode :"+resultCode);
+        Log.e("FriendlyChat","data :"+data.getData());
         if(requestCode == RC_SIGN_IN){
             if(resultCode == RESULT_CANCELED){
                 Toast.makeText(MainActivity.this,"Exited the FriendlyChat app",Toast.LENGTH_SHORT).show();
@@ -174,6 +208,22 @@ public class MainActivity extends AppCompatActivity {
             else if(resultCode == RESULT_OK){
                 Toast.makeText(MainActivity.this,"Login Successful",Toast.LENGTH_SHORT).show();
             }
+        }
+        else if(requestCode == RC_PHOTO_PICKER && resultCode == RESULT_OK){
+            Uri selectedPhotoUri = data.getData();
+            // Reference to store file at `CHAT_PHOTOS/<File_Name>`
+            StorageReference photoRef = mChatPhotosStorageReference.child(selectedPhotoUri.getLastPathSegment());
+            Log.e("FriendlyChat","putting file :"+selectedPhotoUri.getLastPathSegment());
+            photoRef.putFile(selectedPhotoUri).addOnSuccessListener(this, new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                @Override
+                public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                    Log.e("FriendlyChat","file upload success :");
+                    Uri photoDownloadUri = taskSnapshot.getDownloadUrl();
+                    Log.e("FriendlyChat","taskSnapshot Uri :"+photoDownloadUri);
+                    FriendlyMessage friendlyMessage = new FriendlyMessage(null,mUsername,photoDownloadUri.toString());
+                    mMessageDatabaseReference.push().setValue(friendlyMessage);
+                }
+            });
         }
     }
 
@@ -233,7 +283,8 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onChildChanged(@NonNull DataSnapshot dataSnapshot, @Nullable String s) {
-
+                    //dataSnapshot.getRef().
+                   // mMessageAdapter.notifyDataSetChanged();
                 }
 
                 @Override
@@ -260,5 +311,31 @@ public class MainActivity extends AppCompatActivity {
             mMessageDatabaseReference.removeEventListener(mChildEventListener);
             mChildEventListener = null;
         }
+    }
+
+    private void fetchConfig(){
+        long cacheExpiration = 3600;
+        if(mFirebaseRemoteConfig.getInfo().getConfigSettings().isDeveloperModeEnabled()){
+            cacheExpiration = 0;
+        }
+        mFirebaseRemoteConfig.fetch(cacheExpiration).addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                mFirebaseRemoteConfig.activateFetched();
+                applyFetchedConfigs();
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                Log.e("FriendlyChat","Error fetching config values");
+                applyFetchedConfigs();
+            }
+        });
+    }
+
+    private void applyFetchedConfigs(){
+        Long friendlyMessageLength = mFirebaseRemoteConfig.getLong(FRIENDLY_MSG_LENGTH_KEY);
+        mMessageEditText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(friendlyMessageLength.intValue())});
+        Log.e("FriendlyChat","friendlyMessageLength : "+friendlyMessageLength);
     }
 }
