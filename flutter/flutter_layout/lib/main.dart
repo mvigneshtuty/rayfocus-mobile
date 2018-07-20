@@ -30,11 +30,7 @@ class FlutterLayoutApp extends StatelessWidget {
               ),
             ]),
           ),
-          Icon(
-            Icons.star,
-            color: Colors.red[500],
-          ),
-          Text('41')
+          FavouriteWidget()
         ],
       ),
     );
@@ -109,5 +105,55 @@ class FlutterLayoutApp extends StatelessWidget {
     );
 
 
+  }
+}
+
+class FavouriteWidget extends StatefulWidget{
+  @override
+  State<StatefulWidget> createState() {
+    return new FavouriteWidgetState();
+  }
+}
+
+class FavouriteWidgetState extends State{
+  bool _isFavourite = true;
+  int _favouriteCount = 41;
+
+  @override
+  Widget build(BuildContext context) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            padding: EdgeInsets.all(0.0),
+            child: IconButton(
+                icon: _isFavourite? Icon(Icons.star): Icon(Icons.star_border),
+                onPressed: toggleFavourite,
+                color: Colors.amber,
+            ),
+          ),
+          SizedBox(
+            width: 18.0,
+            child: Container(
+              child: Text(
+                '$_favouriteCount'
+              ),
+            ),
+          )
+        ],
+      );
+  }
+
+  void toggleFavourite(){
+    setState(() {
+      if(_isFavourite){
+        _isFavourite = false;
+        _favouriteCount -= 1;
+      }
+      else{
+        _isFavourite = true;
+        _favouriteCount += 1;
+      }
+    });
   }
 }
