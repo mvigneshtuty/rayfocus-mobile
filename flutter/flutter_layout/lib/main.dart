@@ -22,7 +22,7 @@ class FlutterLayoutApp extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
-              Text(
+              Text( 
                 'Kandersteg, Switzerland',
                 style: TextStyle(
                   color: Colors.grey[500],
