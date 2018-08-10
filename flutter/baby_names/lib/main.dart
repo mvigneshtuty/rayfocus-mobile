@@ -11,20 +11,35 @@ class BabyNamesApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Baby Names'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text('Yet Another Flutter App')
-            ],
-          ),
-        ),
-      ),
+      home: HomePage(appTitle : 'Baby Names Poll'),
       debugShowCheckedModeBanner: false,
     );
   }
+}
+
+class HomePage extends StatelessWidget{
+
+  HomePage({
+    this.appTitle
+      });
+
+  final String appTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(appTitle),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text('Yet Another Flutter App')
+          ],
+        ),
+      ),
+    );
+  }
+
 }
